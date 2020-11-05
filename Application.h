@@ -32,7 +32,7 @@ private:
 	ID3D11Buffer*			_pVertexBufferFloor;
 	ID3D11Buffer*			_pIndexBufferFloor;
 	ID3D11Buffer*           _pConstantBuffer;
-	XMFLOAT4X4              _world, _world2, _world3, _world4, _world5, _floor;
+	XMFLOAT4X4              _world, _world2, _world3, _world4, _world5, _floor, _sphere;
 	XMFLOAT4X4              _view;
 	XMFLOAT4X4              _projection;
 

@@ -89,7 +89,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
     // Light direction from surface (XYZ)
     lightDirection = XMFLOAT3(0.25f, 0.5f, -1.0f);
     // Diffuse material properties (RGBA)
-    diffuseMaterial = XMFLOAT4(0.8f, 0.5f, 0.5f, 0.0f);
+    diffuseMaterial = XMFLOAT4(0.2f, 0.2f, 0.2f, 0.0f);
     // Diffuse light colour (RGBA)
     diffuseLight = XMFLOAT4(1.0f, 1.0f, 1.0f, 1.0f); 
     // Ambient meterial properties (RGBA)
@@ -121,7 +121,7 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
     _pd3dDevice->CreateSamplerState(&sampDesc, &_pSamplerLinear);
     _pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
-    objMeshData = OBJLoader::Load("sphere.obj", _pd3dDevice);
+    objMeshData = OBJLoader::Load("star.obj", _pd3dDevice);
     
 	XMStoreFloat4x4(&_view, XMMatrixLookAtLH(Eye, At, Up));
 
@@ -727,12 +727,13 @@ void Application::Update()
     //
     // Animate the objects
     //
-	XMStoreFloat4x4(&_world, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixRotationY(t * 0.1f) * XMMatrixRotationX(t * 0.1f)); //sun
+	XMStoreFloat4x4(&_world, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixRotationY(t * 0.1f) * XMMatrixRotationX(t * 0.1f) * XMMatrixTranslation(0.0f, 5.0f, 0.0f)); //sun
     XMStoreFloat4x4(&_world2, XMMatrixRotationY(t * 0.3f) * XMMatrixTranslation(5.0f, 0.0f, 0.0f) * XMMatrixRotationY(t)); //planet1
     XMStoreFloat4x4(&_world3, XMMatrixRotationY(t * 0.7f) * XMMatrixTranslation(10.0f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.3f)); //planet2
     XMStoreFloat4x4(&_world4, XMMatrixRotationZ(t * 5.0f) * XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslation(2.0f, 0.0f, 0.0f) * XMMatrixRotationY(t) * XMMatrixTranslation(5.0f, 0.0f, 0.0f) * XMMatrixRotationY(t)); //moon1
     XMStoreFloat4x4(&_world5, XMMatrixScaling(0.15f, 0.15f, 0.15f) * XMMatrixTranslation(1.5f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.8f) * XMMatrixTranslation(10.0f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.3f)); //moon2
     XMStoreFloat4x4(&_floor, XMMatrixTranslation(0.0f, 0.0f, 0.0f)); //floor
+    XMStoreFloat4x4(&_sphere, XMMatrixTranslation(0.0f, 0.0f, 0.0f)); //sphere
 }
 
 void Application::Draw()
@@ -816,6 +817,15 @@ void Application::Draw()
     cb.mWorld = XMMatrixTranspose(world);
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
     _pImmediateContext->DrawIndexed(indexCountFloor, 0, 0);
+
+    //Set buffers to Sphere
+    _pImmediateContext->IASetVertexBuffers(0, 1, &objMeshData.VertexBuffer, &stride, &offset);
+    _pImmediateContext->IASetIndexBuffer(objMeshData.IndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+
+    world = XMLoadFloat4x4(&_sphere); //Floor
+    cb.mWorld = XMMatrixTranspose(world);
+    _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+    _pImmediateContext->DrawIndexed(objMeshData.IndexCount, 0, 0);
 
     //
     // Present our back buffer to our front buffer
