@@ -1,7 +1,4 @@
 #include "Application.h"
-#include "DDSTextureLoader.h"
-
-XMFLOAT3 NormalCalc(XMFLOAT3 vec);
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -48,6 +45,7 @@ Application::Application()
 	_pConstantBuffer = nullptr;
     _pTextureRV = nullptr;
     _pSamplerLinear = nullptr;
+    _camera = nullptr;
 }
 
 Application::~Application()
@@ -78,14 +76,18 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
 	XMStoreFloat4x4(&_world, XMMatrixIdentity());
 
     // Eye Position in World
-    eyePosW = XMFLOAT3(0.0f, 10.0f, -10.0f);
+    XMFLOAT3 eyePosW = XMFLOAT3(0.0f, 10.0f, -10.0f); //Where the camera is
+    XMFLOAT3 at = XMFLOAT3(0.0f, 0.0f, 0.0f); //What it is looking at
+    XMFLOAT3 up = XMFLOAT3(0.0f, 1.0f, 0.0f); //The orintaion
+
+    // Initialize the Camera
+    _camera = new Camera(eyePosW, at, up, _WindowWidth, _WindowHeight, FLOAT(0.0f), FLOAT(0.0f));
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet(eyePosW.x, eyePosW.y, eyePosW.z, 0.0f);
-	XMVECTOR At = XMVectorSet(0.0f, 0.0f, 0.0f, 0.0f);
-	XMVECTOR Up = XMVectorSet(0.0f, 1.0f, 0.0f, 0.0f);
-
-
+	XMVECTOR Eye = XMVectorSet(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z, 0.0f);
+	XMVECTOR At = XMVectorSet(_camera->getAt().x, _camera->getAt().y, _camera->getAt().z, 0.0f);
+	XMVECTOR Up = XMVectorSet(_camera->getUp().x, _camera->getUp().y, _camera->getUp().z, 0.0f);
+       
     // Light direction from surface (XYZ)
     lightDirection = XMFLOAT3(0.25f, 0.5f, -1.0f);
     // Diffuse material properties (RGBA)
@@ -122,11 +124,6 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
     _pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
     objMeshData = OBJLoader::Load("star.obj", _pd3dDevice);
-    
-	XMStoreFloat4x4(&_view, XMMatrixLookAtLH(Eye, At, Up));
-
-    // Initialize the projection matrix
-	XMStoreFloat4x4(&_projection, XMMatrixPerspectiveFovLH(XM_PIDIV2, _WindowWidth / (FLOAT) _WindowHeight, 0.01f, 100.0f));
 
 	return S_OK;
 }
@@ -679,7 +676,6 @@ HRESULT Application::InitDevice()
 void Application::Cleanup()
 {
     if (_pImmediateContext) _pImmediateContext->ClearState();
-
     if (_pConstantBuffer) _pConstantBuffer->Release();
     if (_pVertexBuffer) _pVertexBuffer->Release();
     if (_pIndexBuffer) _pIndexBuffer->Release();
@@ -699,6 +695,7 @@ void Application::Cleanup()
     if (_wireFrame) _wireFrame->Release();
     if (_pTextureRV) _pTextureRV->Release();
     if (_pSamplerLinear) _pSamplerLinear->Release();
+    if (_camera) _camera->~Camera();
 }
 
 void Application::Update()
@@ -734,6 +731,55 @@ void Application::Update()
     XMStoreFloat4x4(&_world5, XMMatrixScaling(0.15f, 0.15f, 0.15f) * XMMatrixTranslation(1.5f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.8f) * XMMatrixTranslation(10.0f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.3f)); //moon2
     XMStoreFloat4x4(&_floor, XMMatrixTranslation(0.0f, 0.0f, 0.0f)); //floor
     XMStoreFloat4x4(&_sphere, XMMatrixTranslation(0.0f, 0.0f, 0.0f)); //sphere
+
+    // Keyboard input https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
+    // use 0x0001 for a key toggle, or 0x8000 for a held down
+    if (GetKeyState('D') & 0x8000)
+    {
+        _camera->setEye(XMFLOAT3(_camera->getEye().x + 0.005f, _camera->getEye().y, _camera->getEye().z));
+    }
+    if (GetKeyState('A') & 0x8000)
+    {
+        _camera->setEye(XMFLOAT3(_camera->getEye().x - 0.005f, _camera->getEye().y, _camera->getEye().z));
+    }
+    if (GetKeyState('W') & 0x8000)
+    {
+        _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y + 0.005f, _camera->getEye().z));
+    }    
+    if (GetKeyState('S') & 0x8000)
+    {
+        _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y - 0.005f, _camera->getEye().z));
+    }
+    if (GetKeyState('Q') & 0x8000)
+    {
+        _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z + 0.005f));
+    }
+    if (GetKeyState('E') & 0x8000)
+    {
+        _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z - 0.005f));
+    }
+
+    // Wireframe toggling
+    if (GetKeyState('K') & 0x8000) //To Wireframe
+    {
+        HRESULT hr = S_OK;
+        D3D11_RASTERIZER_DESC wfdesc;
+        ZeroMemory(&wfdesc, sizeof(D3D11_RASTERIZER_DESC));
+        wfdesc.FillMode = D3D11_FILL_WIREFRAME;
+        wfdesc.CullMode = D3D11_CULL_NONE; //D3D11_CULL_BACK
+        hr = _pd3dDevice->CreateRasterizerState(&wfdesc, &_wireFrame);
+        _pImmediateContext->RSSetState(_wireFrame);
+    }
+    if (GetKeyState('L') & 0x8000) //To Solid
+    {
+        HRESULT hr = S_OK;
+        D3D11_RASTERIZER_DESC wfdesc;
+        ZeroMemory(&wfdesc, sizeof(D3D11_RASTERIZER_DESC));
+        wfdesc.FillMode = D3D11_FILL_SOLID;
+        wfdesc.CullMode = D3D11_CULL_NONE; //D3D11_CULL_BACK
+        hr = _pd3dDevice->CreateRasterizerState(&wfdesc, &_wireFrame);
+        _pImmediateContext->RSSetState(_wireFrame);
+    }
 }
 
 void Application::Draw()
@@ -749,8 +795,9 @@ void Application::Draw()
     UINT offset = 0;
 
 	XMMATRIX world = XMLoadFloat4x4(&_world); //Sun
-	XMMATRIX view = XMLoadFloat4x4(&_view);
-	XMMATRIX projection = XMLoadFloat4x4(&_projection);
+	XMMATRIX view = XMLoadFloat4x4(&_camera->getView());
+	XMMATRIX projection = XMLoadFloat4x4(&_camera->getProjection());
+    
     //
     // Update variables
     //
@@ -833,7 +880,7 @@ void Application::Draw()
     _pSwapChain->Present(0, 0);
 }
 
-XMFLOAT3 NormalCalc(XMFLOAT3 vec) //a = eye, b = point
+XMFLOAT3 Application::NormalCalc(XMFLOAT3 vec)
 {
     float length = sqrt(vec.x * vec.x + vec.y * vec.y + vec.z * vec.z);
     float x = vec.x / length;

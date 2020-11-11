@@ -8,6 +8,8 @@
 #include "resource.h"
 #include "Structures.h"
 #include "OBJLoader.h"
+#include "DDSTextureLoader.h"
+#include "Camera.h"
 
 using namespace DirectX;
 
@@ -50,6 +52,8 @@ private:
 	ID3D11SamplerState*		_pSamplerLinear;
 
 	MeshData				objMeshData;
+
+	Camera*					_camera;
 	
 	int indexCountCube = 36;
 	int indexCountPyramid = 18;
@@ -65,6 +69,8 @@ private:
 	HRESULT InitShadersAndInputLayout();
 	HRESULT InitVertexBuffer();
 	HRESULT InitIndexBuffer();
+
+	XMFLOAT3 NormalCalc(XMFLOAT3 vec);
 
 	UINT _WindowHeight;
 	UINT _WindowWidth;
