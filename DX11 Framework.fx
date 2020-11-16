@@ -152,7 +152,9 @@ float4 PS( VS_OUTPUT input ) : SV_Target
     float3 r = reflect(-LightVecW, input.NormalW);
     float specularAmount = pow(max(dot(r, toEye), 0.0f), SpecularPower);
     float3 specular = specularAmount * (SpecularMtrl * SpecularLight).rgb;
-
+    
+    clip(textureColour.a - 0.1f);
+    
     input.Color.rgb = diffuse + ambient + specular + textureColour.rgb;
     input.Color.a = DiffuseMtrl.a + textureColour.a;
 

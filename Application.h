@@ -54,6 +54,8 @@ private:
 	MeshData				objMeshData;
 
 	Camera*					_camera;
+
+	ID3D11BlendState*		_transparency;
 	
 	int indexCountCube = 36;
 	int indexCountPyramid = 18;

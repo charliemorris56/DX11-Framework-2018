@@ -46,6 +46,7 @@ Application::Application()
     _pTextureRV = nullptr;
     _pSamplerLinear = nullptr;
     _camera = nullptr;
+    _transparency = nullptr;
 }
 
 Application::~Application()
@@ -667,6 +668,27 @@ HRESULT Application::InitDevice()
     hr = _pd3dDevice->CreateRasterizerState(&wfdesc, &_wireFrame);
     _pImmediateContext->RSSetState(_wireFrame);
 
+    // Define the blend state
+    D3D11_BLEND_DESC blendDesc;
+    ZeroMemory(&blendDesc, sizeof(blendDesc));
+
+    D3D11_RENDER_TARGET_BLEND_DESC rtbd;
+    ZeroMemory(&rtbd, sizeof(rtbd));
+
+    rtbd.BlendEnable = true;
+    rtbd.SrcBlend = D3D11_BLEND_SRC_COLOR;
+    rtbd.DestBlend = D3D11_BLEND_BLEND_FACTOR;
+    rtbd.BlendOp = D3D11_BLEND_OP_ADD;
+    rtbd.SrcBlendAlpha = D3D11_BLEND_ONE;
+    rtbd.DestBlendAlpha = D3D11_BLEND_ZERO;
+    rtbd.BlendOpAlpha = D3D11_BLEND_OP_ADD;
+    rtbd.RenderTargetWriteMask = D3D10_COLOR_WRITE_ENABLE_ALL;
+
+    blendDesc.AlphaToCoverageEnable = false;
+    blendDesc.RenderTarget[0] = rtbd;
+
+    _pd3dDevice->CreateBlendState(&blendDesc, &_transparency);
+
     if (FAILED(hr))
         return hr;
 
@@ -696,6 +718,7 @@ void Application::Cleanup()
     if (_pTextureRV) _pTextureRV->Release();
     if (_pSamplerLinear) _pSamplerLinear->Release();
     if (_camera) _camera->~Camera();
+    if (_transparency) _transparency->Release();
 }
 
 void Application::Update()
@@ -819,6 +842,9 @@ void Application::Draw()
 
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
+    // Opaque objects
+    _pImmediateContext->OMSetBlendState(0, 0, 0xffffffff); // Set the default blend state (no blending) for opaque objects
+    
     //Set buffers to Pyramid
     _pImmediateContext->IASetVertexBuffers(0, 1, &_pVertexBufferPyramid, &stride, &offset); 
     _pImmediateContext->IASetIndexBuffer(_pIndexBufferPyramid, DXGI_FORMAT_R16_UINT, 0); 
@@ -836,6 +862,10 @@ void Application::Draw()
     cb.mWorld = XMMatrixTranspose(world);
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
     _pImmediateContext->DrawIndexed(indexCountPyramid, 0, 0);
+
+    // Transparent objects
+    float blendFactor[] = { 0.75f, 0.75f, 0.75f, 1.0f }; //blending equation
+    _pImmediateContext->OMSetBlendState(_transparency, blendFactor, 0xffffffff); //Set the blend state for transparent object
        
     world = XMLoadFloat4x4(&_world3); //Planet2
     cb.mWorld = XMMatrixTranspose(world);
