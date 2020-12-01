@@ -10,8 +10,10 @@
 #include "OBJLoader.h"
 #include "DDSTextureLoader.h"
 #include "Camera.h"
+#include "rapidxml.hpp"
 
 using namespace DirectX;
+using namespace rapidxml;
 
 class Application
 {
@@ -34,7 +36,7 @@ private:
 	ID3D11Buffer*			_pVertexBufferFloor;
 	ID3D11Buffer*			_pIndexBufferFloor;
 	ID3D11Buffer*           _pConstantBuffer;
-	XMFLOAT4X4              _world, _world2, _world3, _world4, _world5, _floor, _sphere;
+	XMFLOAT4X4              _sun, _planet1, _planet2, _moon1, _moon2, _floor, _sphere, _car;
 	XMFLOAT4X4              _view;
 	XMFLOAT4X4              _projection;
 
@@ -51,9 +53,28 @@ private:
 	ID3D11ShaderResourceView* _pTextureRV;
 	ID3D11SamplerState*		_pSamplerLinear;
 
-	MeshData				objMeshData;
+	MeshData				starObjMeshData;
+	MeshData				carObjMeshData;
 
 	Camera*					_camera;
+	Camera*					_cameraStatic;
+	Camera*					_cameraTopDown;
+	Camera*					_cameraFirstPerson;
+	Camera*					_cameraThirdPerson;
+
+	XMFLOAT3				carPos;
+	XMFLOAT3				sunPos;
+	XMFLOAT3				planet1Pos;
+	XMFLOAT3				planet2Pos;
+	XMFLOAT3				moon1Pos;
+	XMFLOAT3				moon2Pos;
+	XMFLOAT3				floorPos;
+	XMFLOAT3				spherePos;
+
+	XMFLOAT4				speed;
+
+	POINT					cursorPoint;
+	XMFLOAT2				cursorPointXY;
 
 	ID3D11BlendState*		_transparency;
 	
@@ -73,6 +94,8 @@ private:
 	HRESULT InitIndexBuffer();
 
 	XMFLOAT3 NormalCalc(XMFLOAT3 vec);
+
+	void XML();
 
 	UINT _WindowHeight;
 	UINT _WindowWidth;

@@ -18,7 +18,15 @@ Camera::~Camera()
 
 void Camera::update()
 {
-	XMStoreFloat4x4(&_view, XMMatrixLookAtLH(XMVectorSet(_eye.x, _eye.y, _eye.z, 0.0f), XMVectorSet(_at.x, _at.y, _at.z, 0.0f), XMVectorSet(_up.x, _up.y, _up.z, 0.0f)));
+	if (_typeAt)
+	{
+		XMStoreFloat4x4(&_view, XMMatrixLookAtLH(XMVectorSet(_eye.x, _eye.y, _eye.z, 0.0f), XMVectorSet(_at.x, _at.y, _at.z, 0.0f), XMVectorSet(_up.x, _up.y, _up.z, 0.0f)));
+	}
+	else
+	{
+		XMStoreFloat4x4(&_view, XMMatrixLookToLH(XMVectorSet(_eye.x, _eye.y, _eye.z, 0.0f), XMVectorSet(_at.x, _at.y, _at.z, 0.0f), XMVectorSet(_up.x, _up.y, _up.z, 0.0f)));
+	}	
+
 	XMStoreFloat4x4(&_projection, XMMatrixPerspectiveFovLH(XM_PIDIV2, _windowWidth / (FLOAT)_windowHeight, 0.01f, 100.0f));
 }
 
@@ -55,6 +63,11 @@ void Camera::setUp(XMFLOAT3 up)
 	update();
 }
 
+void Camera::setTypeAt(bool typeAt)
+{
+	_typeAt = typeAt;
+}
+
 XMFLOAT4X4 Camera::getView()
 {
 	return _view;
@@ -68,6 +81,11 @@ XMFLOAT4X4 Camera::getProjection()
 XMFLOAT4X4 Camera::getViewProjection()
 {
 	return XMFLOAT4X4();
+}
+
+bool Camera::getTypeAt()
+{
+	return _typeAt;
 }
 
 void Camera::Reshape(FLOAT windowWidth, FLOAT windowHeight, FLOAT nearDepth, FLOAT farDepth)

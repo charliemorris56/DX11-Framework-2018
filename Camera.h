@@ -23,6 +23,8 @@ private:
 	XMFLOAT4X4 _view;
 	XMFLOAT4X4 _projection;
 
+	bool _typeAt;
+
 public:
 	Camera(XMFLOAT3 position, XMFLOAT3 at, XMFLOAT3 up, FLOAT windowWidth, FLOAT windowHeight, FLOAT nearDepth, FLOAT farDepth);
 	~Camera();
@@ -35,10 +37,12 @@ public:
 	void setEye(XMFLOAT3 position);
 	void setAt(XMFLOAT3 at);
 	void setUp(XMFLOAT3 up);
+	void setTypeAt(bool typeAt);
 
 	XMFLOAT4X4 getView();
 	XMFLOAT4X4 getProjection();
 	XMFLOAT4X4 getViewProjection();
+	bool getTypeAt();
 
 	void Reshape(FLOAT widowWidth, FLOAT windowHeight, FLOAT nearDepth, FLOAT farDepth);
 };

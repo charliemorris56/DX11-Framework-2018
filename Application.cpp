@@ -46,6 +46,10 @@ Application::Application()
     _pTextureRV = nullptr;
     _pSamplerLinear = nullptr;
     _camera = nullptr;
+    _cameraStatic = nullptr;
+    _cameraTopDown = nullptr;
+    _cameraFirstPerson = nullptr;
+    _cameraThirdPerson = nullptr;
     _transparency = nullptr;
 }
 
@@ -74,20 +78,38 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
     }
 
 	// Initialize the world matrix
-	XMStoreFloat4x4(&_world, XMMatrixIdentity());
+	XMStoreFloat4x4(&_sun, XMMatrixIdentity());
 
-    // Eye Position in World
+    // Eye Positions in World
+    // Camera static
     XMFLOAT3 eyePosW = XMFLOAT3(0.0f, 10.0f, -10.0f); //Where the camera is
     XMFLOAT3 at = XMFLOAT3(0.0f, 0.0f, 0.0f); //What it is looking at
     XMFLOAT3 up = XMFLOAT3(0.0f, 1.0f, 0.0f); //The orintaion
+    // Camera top down
+    XMFLOAT3 eyePosWTopDown = XMFLOAT3(0.1f, 20.0f, 0.1f);
+    XMFLOAT3 atTopDown = XMFLOAT3(0.0f, 0.0f, 0.0f);
+    XMFLOAT3 upTopDown = XMFLOAT3(0.0f, 1.0f, 0.0f);
+    // Camera First Person
+    XMFLOAT3 eyePosWFirstPerson = XMFLOAT3(0.0f, 13.0f, 0.0f);
+    XMFLOAT3 atFirstPerson = XMFLOAT3(0.0f, 0.0f, 100.0f);
+    XMFLOAT3 upFirstPerson = XMFLOAT3(0.0f, 1.0f, 0.0f);
+    // Camera Third Person
+    XMFLOAT3 eyePosWThirdPerson = XMFLOAT3(0.0f, 15.0f, -5.0f);
+    XMFLOAT3 atThirdPerson = XMFLOAT3(0.0f, -10.0f, 100.0f);
+    XMFLOAT3 upThirdPerson = XMFLOAT3(0.0f, 1.0f, 0.0f);
 
-    // Initialize the Camera
-    _camera = new Camera(eyePosW, at, up, _WindowWidth, _WindowHeight, FLOAT(0.0f), FLOAT(0.0f));
+    // Initialize the Camera views
+    _cameraStatic = new Camera(eyePosW, at, up, _WindowWidth, _WindowHeight, FLOAT(0.0f), FLOAT(0.0f));
+    _cameraTopDown = new Camera(eyePosWTopDown, atTopDown, upTopDown, _WindowWidth, _WindowHeight, FLOAT(0.0f), FLOAT(0.0f));
+    _cameraFirstPerson = new Camera(eyePosWFirstPerson, atFirstPerson, upFirstPerson, _WindowWidth, _WindowHeight, FLOAT(0.0f), FLOAT(0.0f));
+    _cameraThirdPerson = new Camera(eyePosWThirdPerson, atThirdPerson, upThirdPerson, _WindowWidth, _WindowHeight, FLOAT(0.0f), FLOAT(0.0f));
+
+    _camera = _cameraStatic;
 
     // Initialize the view matrix
-	XMVECTOR Eye = XMVectorSet(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z, 0.0f);
-	XMVECTOR At = XMVectorSet(_camera->getAt().x, _camera->getAt().y, _camera->getAt().z, 0.0f);
-	XMVECTOR Up = XMVectorSet(_camera->getUp().x, _camera->getUp().y, _camera->getUp().z, 0.0f);
+	//XMVECTOR Eye = XMVectorSet(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z, 0.0f);
+	//XMVECTOR At = XMVectorSet(_camera->getAt().x, _camera->getAt().y, _camera->getAt().z, 0.0f);
+	//XMVECTOR Up = XMVectorSet(_camera->getUp().x, _camera->getUp().y, _camera->getUp().z, 0.0f);
        
     // Light direction from surface (XYZ)
     lightDirection = XMFLOAT3(0.25f, 0.5f, -1.0f);
@@ -124,7 +146,13 @@ HRESULT Application::Initialise(HINSTANCE hInstance, int nCmdShow)
     _pd3dDevice->CreateSamplerState(&sampDesc, &_pSamplerLinear);
     _pImmediateContext->PSSetSamplers(0, 1, &_pSamplerLinear);
 
-    objMeshData = OBJLoader::Load("star.obj", _pd3dDevice);
+    starObjMeshData = OBJLoader::Load("star.obj", _pd3dDevice);
+    carObjMeshData = OBJLoader::Load("car.obj", _pd3dDevice);
+
+    // Speed and acceleration values
+    speed = XMFLOAT4(0.0f, 0.0f, 0.0f, 0.005f);
+
+    XML();   
 
 	return S_OK;
 }
@@ -718,6 +746,10 @@ void Application::Cleanup()
     if (_pTextureRV) _pTextureRV->Release();
     if (_pSamplerLinear) _pSamplerLinear->Release();
     if (_camera) _camera->~Camera();
+    if (_cameraStatic) _cameraStatic->~Camera();
+    if (_cameraTopDown) _cameraTopDown->~Camera();
+    if (_cameraFirstPerson) _cameraFirstPerson->~Camera();
+    if (_cameraThirdPerson) _cameraThirdPerson->~Camera();
     if (_transparency) _transparency->Release();
 }
 
@@ -743,47 +775,235 @@ void Application::Update()
 
     //For shader
     //gTime = t;
-
+    
     //
     // Animate the objects
     //
-	XMStoreFloat4x4(&_world, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixRotationY(t * 0.1f) * XMMatrixRotationX(t * 0.1f) * XMMatrixTranslation(0.0f, 5.0f, 0.0f)); //sun
-    XMStoreFloat4x4(&_world2, XMMatrixRotationY(t * 0.3f) * XMMatrixTranslation(5.0f, 0.0f, 0.0f) * XMMatrixRotationY(t)); //planet1
-    XMStoreFloat4x4(&_world3, XMMatrixRotationY(t * 0.7f) * XMMatrixTranslation(10.0f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.3f)); //planet2
-    XMStoreFloat4x4(&_world4, XMMatrixRotationZ(t * 5.0f) * XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslation(2.0f, 0.0f, 0.0f) * XMMatrixRotationY(t) * XMMatrixTranslation(5.0f, 0.0f, 0.0f) * XMMatrixRotationY(t)); //moon1
-    XMStoreFloat4x4(&_world5, XMMatrixScaling(0.15f, 0.15f, 0.15f) * XMMatrixTranslation(1.5f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.8f) * XMMatrixTranslation(10.0f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.3f)); //moon2
-    XMStoreFloat4x4(&_floor, XMMatrixTranslation(0.0f, 0.0f, 0.0f)); //floor
-    XMStoreFloat4x4(&_sphere, XMMatrixTranslation(0.0f, 0.0f, 0.0f)); //sphere
+	XMStoreFloat4x4(&_sun, XMMatrixScaling(2.0f, 2.0f, 2.0f) * XMMatrixRotationY(t * 0.1f) * XMMatrixRotationX(t * 0.1f) * XMMatrixTranslation(sunPos.x, sunPos.y, sunPos.z)); //sun
+    XMStoreFloat4x4(&_planet1, XMMatrixRotationY(t * 0.3f) * XMMatrixTranslation(planet1Pos.x, planet1Pos.y, planet1Pos.z) * XMMatrixRotationY(t)); //planet1
+    XMStoreFloat4x4(&_planet2, XMMatrixRotationY(t * 0.7f) * XMMatrixTranslation(planet2Pos.x, planet2Pos.y, planet2Pos.z) * XMMatrixRotationY(t * 0.3f)); //planet2
+    XMStoreFloat4x4(&_moon1, XMMatrixRotationZ(t * 5.0f) * XMMatrixScaling(0.2f, 0.2f, 0.2f) * XMMatrixTranslation(2.0f, 0.0f, 0.0f) * XMMatrixRotationY(t) * XMMatrixTranslation(moon1Pos.x, moon1Pos.y, moon1Pos.z) * XMMatrixRotationY(t)); //moon1
+    XMStoreFloat4x4(&_moon2, XMMatrixScaling(0.15f, 0.15f, 0.15f) * XMMatrixTranslation(1.5f, 0.0f, 0.0f) * XMMatrixRotationY(t * 0.8f) * XMMatrixTranslation(moon2Pos.x, moon2Pos.y, moon2Pos.z) * XMMatrixRotationY(t * 0.3f)); //moon2
+    XMStoreFloat4x4(&_floor, XMMatrixTranslation(floorPos.x, floorPos.y, floorPos.z)); //floor
+    XMStoreFloat4x4(&_sphere, XMMatrixTranslation(spherePos.x, spherePos.y, spherePos.z)); //sphere
+    XMStoreFloat4x4(&_car, XMMatrixRotationY(cursorPointXY.x) * XMMatrixScaling(0.05f, 0.05f, 0.05f) * XMMatrixTranslation(carPos.x, carPos.y, carPos.z)); //car
 
+    //Set the person camera views to be locked to the cars position
+    _cameraThirdPerson->setEye(XMFLOAT3(carPos.x, carPos.y + 7.0f, carPos.z));
+    _cameraFirstPerson->setEye(XMFLOAT3(carPos.x, carPos.y + 3.0f, carPos.z));
+
+    //
+    // User Input
+    //
+    //
+    // Car movement
+    //
     // Keyboard input https://docs.microsoft.com/en-us/windows/win32/inputdev/virtual-key-codes
-    // use 0x0001 for a key toggle, or 0x8000 for a held down
-    if (GetKeyState('D') & 0x8000)
+    // use 0x0001 for a key toggle, or 0x8000 for a held down 
+    // The car will not move unless in third or first person mode
+    if (_camera == _cameraFirstPerson || _camera == _cameraThirdPerson)
     {
-        _camera->setEye(XMFLOAT3(_camera->getEye().x + 0.005f, _camera->getEye().y, _camera->getEye().z));
-    }
-    if (GetKeyState('A') & 0x8000)
-    {
-        _camera->setEye(XMFLOAT3(_camera->getEye().x - 0.005f, _camera->getEye().y, _camera->getEye().z));
-    }
-    if (GetKeyState('W') & 0x8000)
-    {
-        _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y + 0.005f, _camera->getEye().z));
-    }    
-    if (GetKeyState('S') & 0x8000)
-    {
-        _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y - 0.005f, _camera->getEye().z));
-    }
-    if (GetKeyState('Q') & 0x8000)
-    {
-        _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z + 0.005f));
-    }
-    if (GetKeyState('E') & 0x8000)
-    {
-        _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z - 0.005f));
+        //
+        // Linear motion
+        //
+        // Moves right
+        if (GetKeyState('D') & 0x8000)
+        {
+            _camera->setEye(XMFLOAT3(_camera->getEye().x + speed.w, _camera->getEye().y, _camera->getEye().z));
+            if (_camera != _cameraFirstPerson)
+            {
+                _cameraFirstPerson->setEye(XMFLOAT3(_cameraFirstPerson->getEye().x + speed.w, _cameraFirstPerson->getEye().y, _cameraFirstPerson->getEye().z));
+            }
+            if (_camera != _cameraThirdPerson)
+            {
+                _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x + speed.w, _cameraThirdPerson->getEye().y, _cameraThirdPerson->getEye().z));
+            }
+
+            carPos.x += speed.w;
+        }
+        // Left
+        if (GetKeyState('A') & 0x8000)
+        {
+            _camera->setEye(XMFLOAT3(_camera->getEye().x - speed.w, _camera->getEye().y, _camera->getEye().z));
+            if (_camera != _cameraFirstPerson)
+            {
+                _cameraFirstPerson->setEye(XMFLOAT3(_cameraFirstPerson->getEye().x - speed.w, _cameraFirstPerson->getEye().y, _cameraFirstPerson->getEye().z));
+            }
+            if (_camera != _cameraThirdPerson)
+            {
+                _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x - speed.w, _cameraThirdPerson->getEye().y, _cameraThirdPerson->getEye().z));
+            }
+            carPos.x -= speed.w;
+        }
+        // Up
+        if (GetKeyState('Q') & 0x8000)
+        {
+            _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y + speed.w, _camera->getEye().z));
+            if (_camera != _cameraFirstPerson)
+            {
+                _cameraFirstPerson->setEye(XMFLOAT3(_cameraFirstPerson->getEye().x, _cameraFirstPerson->getEye().y + speed.w, _cameraFirstPerson->getEye().z));
+            }
+            if (_camera != _cameraThirdPerson)
+            {
+                _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x, _cameraThirdPerson->getEye().y + speed.w, _cameraThirdPerson->getEye().z));
+            }
+            carPos.y += speed.w;
+        }
+        // Down
+        if (GetKeyState('E') & 0x8000)
+        {
+            _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y - speed.w, _camera->getEye().z));
+            if (_camera != _cameraFirstPerson)
+            {
+                _cameraFirstPerson->setEye(XMFLOAT3(_cameraFirstPerson->getEye().x, _cameraFirstPerson->getEye().y - speed.w, _cameraFirstPerson->getEye().z));
+            }
+            if (_camera != _cameraThirdPerson)
+            {
+                _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x, _cameraThirdPerson->getEye().y - speed.w, _cameraThirdPerson->getEye().z));
+            }
+            carPos.y -= speed.w;
+        }
+        // Forward
+        if (GetKeyState('W') & 0x8000)
+        {
+            _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z + speed.w));
+            if (_camera != _cameraFirstPerson)
+            {
+                _cameraFirstPerson->setEye(XMFLOAT3(_cameraFirstPerson->getEye().x, _cameraFirstPerson->getEye().y, _cameraFirstPerson->getEye().z + speed.w));
+            }
+            if (_camera != _cameraThirdPerson)
+            {
+                _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x, _cameraThirdPerson->getEye().y, _cameraThirdPerson->getEye().z + speed.w));
+            }
+            carPos.z += speed.w;
+        }
+        // Back
+        if (GetKeyState('S') & 0x8000)
+        {
+            _camera->setEye(XMFLOAT3(_camera->getEye().x, _camera->getEye().y, _camera->getEye().z - speed.w));
+            if (_camera != _cameraFirstPerson)
+            {
+                _cameraFirstPerson->setEye(XMFLOAT3(_cameraFirstPerson->getEye().x, _cameraFirstPerson->getEye().y, _cameraFirstPerson->getEye().z - speed.w));
+            }
+            if (_camera != _cameraThirdPerson)
+            {
+                _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x, _cameraThirdPerson->getEye().y, _cameraThirdPerson->getEye().z - speed.w));
+            }
+            carPos.z -= speed.w;
+        }
+
+        //
+        // Speed increase/ decrease
+        //
+
+        if (GetKeyState(VK_SHIFT) & 0x8000)
+        {
+            if (GetKeyState('W') & 0x8000)
+            {
+                speed.z += 0.00001f;
+            }
+            else if (GetKeyState('S') & 0x8000)
+            {
+                speed.z -= 0.00001f;
+            }
+
+            if (GetKeyState('A') & 0x8000)
+            {
+                speed.x -= 0.00001f;
+            }
+            else if (GetKeyState('D') & 0x8000)
+            {
+                speed.x += 0.00001f;
+            }
+
+            if (GetKeyState('Q') & 0x8000)
+            {
+                speed.y += 0.00001f;
+            }
+            else if (GetKeyState('E') & 0x8000)
+            {
+                speed.y -= 0.00001f;
+            }
+        }
+        else
+        {
+            if (speed.z > 0)
+            {
+                speed.z -= 0.000001f;
+            }
+            else if (speed.z < 0)
+            {
+                speed.z += 0.000001f;
+            }
+
+            if (speed.x > 0)
+            {
+                speed.x -= 0.000001f;
+            }
+            else if (speed.x < 0)
+            {
+                speed.x += 0.000001f;
+            }
+
+            if (speed.y > 0)
+            {
+                speed.y -= 0.000001f;
+            }
+            else if (speed.y < 0)
+            {
+                speed.y += 0.000001f;
+            }
+        }
+
+        //
+        // Rotaion
+        //
+        // Mouse controls
+        if (GetCursorPos(&cursorPoint))
+        {
+            //cursor position now in p.x and p.y
+            float px = cursorPoint.x;
+            cursorPointXY.x = (px - 500) / 100;
+            float py = cursorPoint.y;
+            cursorPointXY.y = 10 - (py / 100);
+
+            _camera->setAt(XMFLOAT3(sin(cursorPointXY.x) * 100, _camera->getAt().y, cos(cursorPointXY.x) * 100)); //Left and right
+            
+            _camera->setAt(XMFLOAT3(_camera->getAt().x, sin(cursorPointXY.y) * 100, _camera->getAt().z)); //Up and down
+        }
+
+        // Reset
+        if (GetKeyState('R') & 0x8000)
+        {
+            speed.x = 0.0f;
+            speed.y = 0.0f;
+            speed.z = 0.0f;
+
+            carPos = XMFLOAT3(0.0f, 10.0f, 0.0f);
+
+            cursorPointXY.x = 0;
+            cursorPointXY.y = 0;
+        }
+
+        _camera->setEye(XMFLOAT3(_camera->getEye().x + speed.x, _camera->getEye().y + speed.y, _camera->getEye().z + speed.z));
+        if (_camera != _cameraFirstPerson)
+        {
+            _cameraFirstPerson->setEye(XMFLOAT3(_cameraFirstPerson->getEye().x + speed.x, _cameraFirstPerson->getEye().y + speed.y, _cameraFirstPerson->getEye().z + speed.z));
+        }
+        if (_camera != _cameraThirdPerson)
+        {
+            _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x + speed.x, _cameraThirdPerson->getEye().y + speed.y, _cameraThirdPerson->getEye().z + speed.z));
+        }
+        carPos.x += speed.x;
+        carPos.y += speed.y;
+        carPos.z += speed.z;
     }
 
+    //
     // Wireframe toggling
-    if (GetKeyState('K') & 0x8000) //To Wireframe
+    //
+    // To Wireframe
+    if (GetKeyState('K') & 0x8000)
     {
         HRESULT hr = S_OK;
         D3D11_RASTERIZER_DESC wfdesc;
@@ -793,7 +1013,8 @@ void Application::Update()
         hr = _pd3dDevice->CreateRasterizerState(&wfdesc, &_wireFrame);
         _pImmediateContext->RSSetState(_wireFrame);
     }
-    if (GetKeyState('L') & 0x8000) //To Solid
+    //To Solid
+    if (GetKeyState('L') & 0x8000) 
     {
         HRESULT hr = S_OK;
         D3D11_RASTERIZER_DESC wfdesc;
@@ -802,6 +1023,35 @@ void Application::Update()
         wfdesc.CullMode = D3D11_CULL_NONE; //D3D11_CULL_BACK
         hr = _pd3dDevice->CreateRasterizerState(&wfdesc, &_wireFrame);
         _pImmediateContext->RSSetState(_wireFrame);
+    }
+
+    // Camera viewpoints
+    // Top Down
+    if (GetKeyState('Z') & 0x8000)
+    {
+        _camera->setTypeAt(true);
+        _camera = _cameraStatic;
+    }
+    //Static
+    if (GetKeyState('X') & 0x8000)
+    {
+        _camera->setTypeAt(true);
+        _camera = _cameraTopDown;
+    }
+
+    // Set camera type
+    // Look At
+    // First person
+    if (GetKeyState('V') & 0x8000)
+    {
+        _camera->setTypeAt(false);
+        _camera = _cameraFirstPerson;
+    }
+    // Third person
+    if (GetKeyState('B') & 0x8000)
+    {
+        _camera->setTypeAt(false);
+        _camera = _cameraThirdPerson;
     }
 }
 
@@ -817,7 +1067,7 @@ void Application::Draw()
     UINT stride = sizeof(SimpleVertex);
     UINT offset = 0;
 
-	XMMATRIX world = XMLoadFloat4x4(&_world); //Sun
+	XMMATRIX world = XMLoadFloat4x4(&_sun); //Sun
 	XMMATRIX view = XMLoadFloat4x4(&_camera->getView());
 	XMMATRIX projection = XMLoadFloat4x4(&_camera->getProjection());
     
@@ -842,32 +1092,47 @@ void Application::Draw()
 
 	_pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
 
+    //
     // Opaque objects
+    //
     _pImmediateContext->OMSetBlendState(0, 0, 0xffffffff); // Set the default blend state (no blending) for opaque objects
     
     //Set buffers to Pyramid
     _pImmediateContext->IASetVertexBuffers(0, 1, &_pVertexBufferPyramid, &stride, &offset); 
     _pImmediateContext->IASetIndexBuffer(_pIndexBufferPyramid, DXGI_FORMAT_R16_UINT, 0); 
 
-    //
     // Renders a triangle
-    //
 	_pImmediateContext->VSSetShader(_pVertexShader, nullptr, 0);
 	_pImmediateContext->VSSetConstantBuffers(0, 1, &_pConstantBuffer);
     _pImmediateContext->PSSetConstantBuffers(0, 1, &_pConstantBuffer);
 	_pImmediateContext->PSSetShader(_pPixelShader, nullptr, 0);
 	_pImmediateContext->DrawIndexed(indexCountPyramid, 0, 0);
 
-    world = XMLoadFloat4x4(&_world2); //Planet1
+    world = XMLoadFloat4x4(&_planet1); //Planet1
     cb.mWorld = XMMatrixTranspose(world);
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
     _pImmediateContext->DrawIndexed(indexCountPyramid, 0, 0);
 
+    //Set buffer to Car
+    _pImmediateContext->IASetVertexBuffers(0, 1, &carObjMeshData.VertexBuffer, &stride, &offset);
+    _pImmediateContext->IASetIndexBuffer(carObjMeshData.IndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+
+    world = XMLoadFloat4x4(&_car); //Car
+    cb.mWorld = XMMatrixTranspose(world);
+    _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
+    _pImmediateContext->DrawIndexed(carObjMeshData.IndexCount, 0, 0);
+
+    //
     // Transparent objects
+    //
     float blendFactor[] = { 0.75f, 0.75f, 0.75f, 1.0f }; //blending equation
     _pImmediateContext->OMSetBlendState(_transparency, blendFactor, 0xffffffff); //Set the blend state for transparent object
        
-    world = XMLoadFloat4x4(&_world3); //Planet2
+    //Set buffers to Pyramid
+    _pImmediateContext->IASetVertexBuffers(0, 1, &_pVertexBufferPyramid, &stride, &offset);
+    _pImmediateContext->IASetIndexBuffer(_pIndexBufferPyramid, DXGI_FORMAT_R16_UINT, 0);
+
+    world = XMLoadFloat4x4(&_planet2); //Planet2
     cb.mWorld = XMMatrixTranspose(world);
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
     _pImmediateContext->DrawIndexed(indexCountPyramid, 0, 0);
@@ -876,12 +1141,12 @@ void Application::Draw()
     _pImmediateContext->IASetVertexBuffers(0, 1, &_pVertexBuffer, &stride, &offset); 
     _pImmediateContext->IASetIndexBuffer(_pIndexBuffer, DXGI_FORMAT_R16_UINT, 0); 
 
-    world = XMLoadFloat4x4(&_world4); //Moon1
+    world = XMLoadFloat4x4(&_moon1); //Moon1
     cb.mWorld = XMMatrixTranspose(world);
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
     _pImmediateContext->DrawIndexed(indexCountCube, 0, 0);
 
-    world = XMLoadFloat4x4(&_world5); //Moon2
+    world = XMLoadFloat4x4(&_moon2); //Moon2
     cb.mWorld = XMMatrixTranspose(world);
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
     _pImmediateContext->DrawIndexed(indexCountCube, 0, 0);
@@ -895,14 +1160,14 @@ void Application::Draw()
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
     _pImmediateContext->DrawIndexed(indexCountFloor, 0, 0);
 
-    //Set buffers to Sphere
-    _pImmediateContext->IASetVertexBuffers(0, 1, &objMeshData.VertexBuffer, &stride, &offset);
-    _pImmediateContext->IASetIndexBuffer(objMeshData.IndexBuffer, DXGI_FORMAT_R16_UINT, 0);
+    //Set buffers to Star
+    _pImmediateContext->IASetVertexBuffers(0, 1, &starObjMeshData.VertexBuffer, &stride, &offset);
+    _pImmediateContext->IASetIndexBuffer(starObjMeshData.IndexBuffer, DXGI_FORMAT_R16_UINT, 0);
 
-    world = XMLoadFloat4x4(&_sphere); //Floor
+    world = XMLoadFloat4x4(&_sphere); //Star
     cb.mWorld = XMMatrixTranspose(world);
     _pImmediateContext->UpdateSubresource(_pConstantBuffer, 0, nullptr, &cb, 0, 0);
-    _pImmediateContext->DrawIndexed(objMeshData.IndexCount, 0, 0);
+    _pImmediateContext->DrawIndexed(starObjMeshData.IndexCount, 0, 0);
 
     //
     // Present our back buffer to our front buffer
@@ -918,4 +1183,123 @@ XMFLOAT3 Application::NormalCalc(XMFLOAT3 vec)
     float z = vec.z / length;
 
     return XMFLOAT3(x,y,z);
+}
+
+void Application::XML()
+{
+    xml_document<> doc;
+    xml_node<>* root_node;
+    std::ifstream theFile("values.xml");
+    std::vector<char> buffer((std::istreambuf_iterator<char>(theFile)), std::istreambuf_iterator<char>());
+    buffer.push_back('\0');
+    doc.parse<0>(&buffer[0]);
+    root_node = doc.first_node("values");
+    // Car position
+    for (xml_node<>* object_node = root_node->first_node("object"); object_node; object_node = object_node->next_sibling())
+    {
+        // car
+        if (strcmp(object_node->first_attribute("position")->value(), "car_x") == 0)
+        {
+            carPos.x = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "car_y") == 0)
+        {
+            carPos.y = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "car_z") == 0)
+        {
+            carPos.z = atof(object_node->first_attribute("value")->value());
+        }
+        // Sun
+        else if (strcmp(object_node->first_attribute("position")->value(), "sun_x") == 0)
+        {
+            sunPos.x = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "sun_y") == 0)
+        {
+            sunPos.y = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "sun_z") == 0)
+        {
+            sunPos.z = atof(object_node->first_attribute("value")->value());
+        }
+        // Planet1
+        else if (strcmp(object_node->first_attribute("position")->value(), "planet1_x") == 0)
+        {
+            planet1Pos.x = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "planet1_y") == 0)
+        {
+            planet1Pos.y = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "planet1_z") == 0)
+        {
+            planet1Pos.z = atof(object_node->first_attribute("value")->value());
+        }
+        // Planet2
+        else if (strcmp(object_node->first_attribute("position")->value(), "planet2_x") == 0)
+        {
+            planet2Pos.x = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "planet2_y") == 0)
+        {
+            planet2Pos.y = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "planet2_z") == 0)
+        {
+            planet2Pos.z = atof(object_node->first_attribute("value")->value());
+        }
+        // Moon1
+        else if (strcmp(object_node->first_attribute("position")->value(), "moon1_x") == 0)
+        {
+            moon1Pos.x = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "moon1_y") == 0)
+        {
+            moon1Pos.y = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "moon1_z") == 0)
+        {
+            moon1Pos.z = atof(object_node->first_attribute("value")->value());
+        }
+        // Moon2
+        else if (strcmp(object_node->first_attribute("position")->value(), "moon2_x") == 0)
+        {
+            moon2Pos.x = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "moon2_y") == 0)
+        {
+            moon2Pos.y = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "moon2_z") == 0)
+        {
+            moon2Pos.z = atof(object_node->first_attribute("value")->value());
+        }
+        // Floor
+        else if (strcmp(object_node->first_attribute("position")->value(), "floor_x") == 0)
+        {
+            floorPos.x = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "floor_y") == 0)
+        {
+            floorPos.y = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "floor_z") == 0)
+        {
+            floorPos.z = atof(object_node->first_attribute("value")->value());
+        }
+        // Sphere
+        else if (strcmp(object_node->first_attribute("position")->value(), "sphere_x") == 0)
+        {
+            spherePos.x = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "sphere_y") == 0)
+        {
+            spherePos.y = atof(object_node->first_attribute("value")->value());
+        }
+        else if (strcmp(object_node->first_attribute("position")->value(), "sphere_z") == 0)
+        {
+            spherePos.z = atof(object_node->first_attribute("value")->value());
+        }
+    }
 }

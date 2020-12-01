@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?> 
+<values>
+	<object position="car_x" value="0.0f"/> 	
+	<object position="car_y" value="10.0f"/>
+	<object position="car_z" value="0.0f"/>		
+	<object position="sun_x" value="0.0f"/> 	
+	<object position="sun_y" value="5.0f"/>
+	<object position="sun_z" value="0.0f"/>
+	<object position="planet1_x" value="5.0f"/> 	
+	<object position="planet1_y" value="0.0f"/>
+	<object position="planet1_z" value="0.0f"/>
+	<object position="planet2_x" value="10.0f"/> 	
+	<object position="planet2_y" value="0.0f"/>
+	<object position="planet2_z" value="0.0f"/>
+	<object position="moon1_x" value="5.0f"/> 	
+	<object position="moon1_y" value="0.0f"/>
+	<object position="moon1_z" value="0.0f"/>
+	<object position="moon2_x" value="10.0f"/> 	
+	<object position="moon2_y" value="0.0f"/>
+	<object position="moon2_z" value="0.0f"/>
+	<object position="floor_x" value="0.0f"/> 	
+	<object position="floor_y" value="0.0f"/>
+	<object position="floor_z" value="0.0f"/>
+	<object position="sphere_x" value="0.0f"/> 	
+	<object position="sphere_y" value="0.0f"/>
+	<object position="sphere_z" value="0.0f"/>
+</values>
