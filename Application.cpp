@@ -819,7 +819,8 @@ void Application::Update()
                 _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x + speed.w, _cameraThirdPerson->getEye().y, _cameraThirdPerson->getEye().z));
             }
 
-            carPos.x += speed.w;
+            carPos.x += speed.w * cos(cursorPointXY.x);
+            carPos.z -= speed.w * sin(cursorPointXY.x);
         }
         // Left
         if (GetKeyState('A') & 0x8000)
@@ -833,7 +834,8 @@ void Application::Update()
             {
                 _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x - speed.w, _cameraThirdPerson->getEye().y, _cameraThirdPerson->getEye().z));
             }
-            carPos.x -= speed.w;
+            carPos.x -= speed.w * cos(cursorPointXY.x);
+            carPos.z += speed.w * sin(cursorPointXY.x);
         }
         // Up
         if (GetKeyState('Q') & 0x8000)
@@ -875,7 +877,8 @@ void Application::Update()
             {
                 _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x, _cameraThirdPerson->getEye().y, _cameraThirdPerson->getEye().z + speed.w));
             }
-            carPos.z += speed.w;
+            carPos.z += speed.w * cos(cursorPointXY.x);
+            carPos.x += speed.w * sin(cursorPointXY.x);
         }
         // Back
         if (GetKeyState('S') & 0x8000)
@@ -889,7 +892,8 @@ void Application::Update()
             {
                 _cameraThirdPerson->setEye(XMFLOAT3(_cameraThirdPerson->getEye().x, _cameraThirdPerson->getEye().y, _cameraThirdPerson->getEye().z - speed.w));
             }
-            carPos.z -= speed.w;
+            carPos.z -= speed.w * cos(cursorPointXY.x);
+            carPos.x -= speed.w * sin(cursorPointXY.x);
         }
 
         //
@@ -900,20 +904,24 @@ void Application::Update()
         {
             if (GetKeyState('W') & 0x8000)
             {
-                speed.z += 0.00001f;
+                speed.z += 0.00001f * cos(cursorPointXY.x);
+                speed.x += 0.00001f * sin(cursorPointXY.x);
             }
             else if (GetKeyState('S') & 0x8000)
             {
-                speed.z -= 0.00001f;
+                speed.z -= 0.00001f * cos(cursorPointXY.x);
+                speed.x -= 0.00001f * sin(cursorPointXY.x);
             }
 
             if (GetKeyState('A') & 0x8000)
             {
-                speed.x -= 0.00001f;
+                speed.x -= 0.00001f * cos(cursorPointXY.x);
+                speed.x += 0.00001f * sin(cursorPointXY.x);
             }
             else if (GetKeyState('D') & 0x8000)
             {
-                speed.x += 0.00001f;
+                speed.x += 0.00001f * cos(cursorPointXY.x);
+                speed.x -= 0.00001f * sin(cursorPointXY.x);
             }
 
             if (GetKeyState('Q') & 0x8000)
